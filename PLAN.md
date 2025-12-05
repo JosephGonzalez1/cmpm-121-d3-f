@@ -17,7 +17,7 @@
 Key technical challenge: Can you assemble a map-based user interface using the Leaflet mapping framework?\
 Key gameplay challenge: Can players collect and craft tokens from nearby locations to finally make one of sufficiently high value?
 
-#### Steps
+#### Steps D3.a
 
 - [x] copy main.ts to reference.ts for future reference
 - [x] delete everything in main.ts
@@ -36,6 +36,9 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 
 ### D3.b: Globe-spanning Gameplay
 
-#### Steps
+#### Steps D3.b
 
-- [] dynamic, globe-spanning grid
+- [x] dynamic, globe-spanning grid
+- [x] memoryless cells
+- [ ]add player movement buttons to move north/south/east/west
+- [ ]update playerCell
