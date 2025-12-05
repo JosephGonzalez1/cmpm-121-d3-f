@@ -29,9 +29,9 @@ const playerMarker = L.marker(CLASSROOM);
 playerMarker.bindTooltip("You are here", { permanent: true });
 playerMarker.addTo(map);
 
-// --- 3) Define grid ---
+// --- 3) Define grid and tokens ---
 const TILE_DEGREES = 0.0001;
-const GRID_RADIUS = 5; // 11x11 grid
+const GRID_RADIUS = 30; // 11x11 grid
 const INTERACTION_RADIUS = 3; // player can interact with cells within 3 tiles
 
 interface CellData {
@@ -56,7 +56,7 @@ function cellBounds(i: number, j: number) {
 }
 
 function cellDistance(i: number, j: number) {
-  return Math.max(Math.abs(i), Math.abs(j)); // Chebyshev distance
+  return Math.max(Math.abs(i), Math.abs(j));
 }
 
 function inRange(i: number, j: number) {
@@ -79,7 +79,7 @@ function updateInventoryUI() {
     : `Holding: ${heldToken}`;
 }
 
-// --- 5) Draw grid with tokens and click handlers ---
+// --- 5) Draw grid, assign tokens, add click handlers ---
 for (let i = -GRID_RADIUS; i <= GRID_RADIUS; i++) {
   for (let j = -GRID_RADIUS; j <= GRID_RADIUS; j++) {
     const key = cellKey(i, j);
@@ -108,24 +108,46 @@ for (let i = -GRID_RADIUS; i <= GRID_RADIUS; i++) {
 
     cellTokens.set(key, { value, labelMarker: marker });
 
-    // Click handler for picking up token
+    // Click handler: pick up or craft tokens
     rect.on("click", () => {
       if (!inRange(i, j)) return;
 
       const cell = cellTokens.get(key)!;
-      if (cell.value === null || heldToken !== null) return;
 
-      // Pick up token
-      heldToken = cell.value;
-      cell.value = null;
-
-      // Remove the token label marker
-      if (cell.labelMarker) {
-        cell.labelMarker.remove();
-        cell.labelMarker = undefined;
+      // Pick up token if holding nothing
+      if (heldToken === null && cell.value !== null) {
+        heldToken = cell.value;
+        cell.value = null;
+        if (cell.labelMarker) {
+          cell.labelMarker.remove();
+          cell.labelMarker = undefined;
+        }
+        updateInventoryUI();
+        return;
       }
 
-      updateInventoryUI();
+      // Craft if holding a token and cell has same value
+      if (heldToken !== null && cell.value === heldToken) {
+        const newValue = heldToken * 2;
+        heldToken = null;
+
+        if (cell.labelMarker) {
+          cell.labelMarker.remove();
+        }
+
+        cell.value = newValue;
+        const marker = L.marker(bounds.getCenter(), {
+          icon: L.divIcon({
+            className: "token-label",
+            html:
+              `<div style="color: red; font-weight: bold;">${newValue}</div>`,
+          }),
+        }).addTo(map);
+        cell.labelMarker = marker;
+
+        updateInventoryUI();
+        return;
+      }
     });
   }
 }
