@@ -44,3 +44,12 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 - [x] update playerCell
 - [x] updated interaction radius
 - [x] victory condition when a token reaches a target value
+
+### D3.c: Object persistence
+
+#### Steps D3.c
+
+- [ ] separate cell data from visual objects
+- [ ] Modify drawCell to use persistent state
+- [ ] Update cell clicks to persist changes
+- [ ] Update updateVisibleCells
