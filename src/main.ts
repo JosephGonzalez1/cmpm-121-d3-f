@@ -56,9 +56,9 @@ function updateInventoryUI() {
 }
 
 // --- Player logical position ---
-const playerCell = { 
-  i: Math.floor(36.997936938057016 / TILE_DEGREES), 
-  j: Math.floor(-122.05703507501151 / TILE_DEGREES) 
+const playerCell = {
+  i: Math.floor(36.997936938057016 / TILE_DEGREES),
+  j: Math.floor(-122.05703507501151 / TILE_DEGREES),
 };
 
 // --- Helper functions ---
@@ -69,7 +69,7 @@ function cellKey(i: number, j: number) {
 function cellBounds(i: number, j: number) {
   return L.latLngBounds(
     [i * TILE_DEGREES, j * TILE_DEGREES],
-    [(i + 1) * TILE_DEGREES, (j + 1) * TILE_DEGREES]
+    [(i + 1) * TILE_DEGREES, (j + 1) * TILE_DEGREES],
   );
 }
 
@@ -137,11 +137,11 @@ function drawCell(i: number, j: number) {
   const value = generateTokenValue(i, j);
   const marker = value !== null
     ? L.marker(bounds.getCenter(), {
-        icon: L.divIcon({
-          className: "token-label",
-          html: `<div style="${TOKEN_LABEL_STYLE}">${value}</div>`,
-        }),
-      }).addTo(map)
+      icon: L.divIcon({
+        className: "token-label",
+        html: `<div style="${TOKEN_LABEL_STYLE}">${value}</div>`,
+      }),
+    }).addTo(map)
     : undefined;
 
   visibleMarkers.set(key, { value, rect, labelMarker: marker });
