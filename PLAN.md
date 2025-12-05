@@ -40,5 +40,7 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 
 - [x] dynamic, globe-spanning grid
 - [x] memoryless cells
-- [ ]add player movement buttons to move north/south/east/west
-- [ ]update playerCell
+- [x] add player movement buttons to move north/south/east/west
+- [x] update playerCell
+- [x] updated interaction radius
+- [ ] victory condition when a token reaches a target value
