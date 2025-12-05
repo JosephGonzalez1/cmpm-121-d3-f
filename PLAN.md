@@ -49,7 +49,7 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 
 #### Steps D3.c
 
-- [ ] separate cell data from visual objects
-- [ ] Modify drawCell to use persistent state
-- [ ] Update cell clicks to persist changes
-- [ ] Update updateVisibleCells
+- [x] separate cell data from visual objects
+- [x] Modify drawCell to use persistent state
+- [x] Update cell clicks to persist changes
+- [x] Update updateVisibleCells

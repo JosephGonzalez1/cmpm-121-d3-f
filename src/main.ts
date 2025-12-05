@@ -1,7 +1,7 @@
 // @deno-types="npm:@types/leaflet"
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import "./_leafletWorkaround.ts"; // keeps default marker icons working
+import "./_leafletWorkaround.ts";
 import luck from "./_luck.ts";
 
 // --- Map setup ---
@@ -30,16 +30,17 @@ playerMarker.addTo(map);
 const TILE_DEGREES = 0.0001;
 const INTERACTION_RADIUS = 3;
 const TOKEN_LABEL_STYLE = "color: red; font-weight: bold;";
-const VICTORY_TARGET = 8; // token value to win
+const VICTORY_VALUE = 8; // token value to win
 
 interface CellData {
   value: number | null;
-  labelMarker: L.Marker | undefined;
-  cellRect: L.Rectangle | undefined;
+  labelMarker?: L.Marker | undefined;
+  rect?: L.Rectangle | undefined;
 }
 
-// Only track currently visible cells
-const visibleMarkers = new Map<string, CellData>();
+// Map to hold modified cells persistently in memory
+const persistentCells = new Map<string, CellData>();
+
 let heldToken: number | null = null;
 
 // --- Inventory UI ---
@@ -55,6 +56,21 @@ function updateInventoryUI() {
     ? "Holding: none"
     : `Holding: ${heldToken}`;
 }
+
+// --- Victory display ---
+const victoryDiv = document.createElement("div");
+victoryDiv.id = "victory";
+victoryDiv.style.position = "absolute";
+victoryDiv.style.top = "10px";
+victoryDiv.style.left = "50%";
+victoryDiv.style.transform = "translateX(-50%)";
+victoryDiv.style.padding = "1rem 2rem";
+victoryDiv.style.backgroundColor = "gold";
+victoryDiv.style.fontWeight = "bold";
+victoryDiv.style.fontSize = "1.2rem";
+victoryDiv.style.display = "none";
+victoryDiv.textContent = "Victory!";
+document.body.append(victoryDiv);
 
 // --- Player logical position ---
 const playerCell = {
@@ -74,12 +90,12 @@ function cellBounds(i: number, j: number) {
   );
 }
 
-function cellDistance(i: number, j: number, playerI: number, playerJ: number) {
-  return Math.max(Math.abs(i - playerI), Math.abs(j - playerJ));
+function cellDistance(i: number, j: number) {
+  return Math.max(Math.abs(i - playerCell.i), Math.abs(j - playerCell.j));
 }
 
-function inRange(i: number, j: number, playerI: number, playerJ: number) {
-  return cellDistance(i, j, playerI, playerJ) <= INTERACTION_RADIUS;
+function inRange(i: number, j: number) {
+  return cellDistance(i, j) <= INTERACTION_RADIUS;
 }
 
 function generateTokenValue(i: number, j: number): number | null {
@@ -90,67 +106,79 @@ function generateTokenValue(i: number, j: number): number | null {
   return null;
 }
 
-// --- Helper: create token marker ---
-function createTokenMarker(i: number, j: number, value: number) {
-  return L.marker(cellBounds(i, j).getCenter(), {
-    icon: L.divIcon({
-      className: "token-label",
-      html: `<div style="${TOKEN_LABEL_STYLE}">${value}</div>`,
-    }),
-  }).addTo(map);
-}
-
-// --- Handle cell clicks (memoryless) ---
+// --- Handle cell clicks ---
 function handleCellClick(i: number, j: number) {
   const key = cellKey(i, j);
-  const cellData = visibleMarkers.get(key);
-  if (!cellData) return;
-  if (!inRange(i, j, playerCell.i, playerCell.j)) return;
+  const cell = persistentCells.get(key);
+  if (!cell) return;
+  if (!inRange(i, j)) return;
 
   // Pick up token
-  if (heldToken === null && cellData.value !== null) {
-    heldToken = cellData.value;
-    if (cellData.labelMarker) cellData.labelMarker.remove();
-    cellData.value = null;
-    cellData.labelMarker = undefined;
+  if (heldToken === null && cell.value !== null) {
+    heldToken = cell.value;
+    cell.value = null;
+    if (cell.labelMarker) {
+      cell.labelMarker.remove();
+      cell.labelMarker = undefined;
+    }
     updateInventoryUI();
     return;
   }
 
   // Craft token
-  if (heldToken !== null && cellData.value === heldToken) {
+  if (heldToken !== null && cell.value === heldToken) {
     const newValue = heldToken * 2;
     heldToken = null;
 
-    if (cellData.labelMarker) cellData.labelMarker.remove();
+    if (cell.labelMarker) {
+      cell.labelMarker.remove();
+    }
 
-    cellData.value = newValue;
-    cellData.labelMarker = createTokenMarker(i, j, newValue);
+    cell.value = newValue;
+    cell.labelMarker = L.marker(cellBounds(i, j).getCenter(), {
+      icon: L.divIcon({
+        className: "token-label",
+        html: `<div style="${TOKEN_LABEL_STYLE}">${newValue}</div>`,
+      }),
+    }).addTo(map);
 
     updateInventoryUI();
 
-    // Victory check
-    if (newValue >= VICTORY_TARGET) {
-      alert(`Victory! You crafted a token of value ${newValue}!`);
+    // Check victory
+    if (newValue >= VICTORY_VALUE) {
+      victoryDiv.style.display = "block";
     }
-
-    return;
   }
 }
 
 // --- Draw a single cell ---
 function drawCell(i: number, j: number) {
   const key = cellKey(i, j);
-  if (visibleMarkers.has(key)) return;
+
+  // Reuse persistent cell if exists, otherwise generate
+  let cell = persistentCells.get(key);
+  if (!cell) {
+    const value = generateTokenValue(i, j);
+    cell = { value };
+    persistentCells.set(key, cell);
+  }
+
+  if (cell.rect) return; // already drawn
 
   const bounds = cellBounds(i, j);
-  const cellRect = L.rectangle(bounds, { color: "gray", weight: 1 }).addTo(map);
-  cellRect.on("click", () => handleCellClick(i, j));
+  const rect = L.rectangle(bounds, { color: "gray", weight: 1 }).addTo(map);
+  rect.on("click", () => handleCellClick(i, j));
 
-  const value = generateTokenValue(i, j);
-  const marker = value !== null ? createTokenMarker(i, j, value) : undefined;
+  cell.rect = rect;
 
-  visibleMarkers.set(key, { value, cellRect, labelMarker: marker });
+  if (cell.value !== null) {
+    cell.labelMarker = L.marker(bounds.getCenter(), {
+      icon: L.divIcon({
+        className: "token-label",
+        html: `<div style="${TOKEN_LABEL_STYLE}">${cell.value}</div>`,
+      }),
+    }).addTo(map);
+  }
 }
 
 // --- Update visible cells dynamically ---
@@ -174,11 +202,16 @@ function updateVisibleCells() {
   }
 
   // Remove off-screen cells
-  for (const [key, cellData] of visibleMarkers.entries()) {
+  for (const [key, cell] of persistentCells.entries()) {
     if (!newVisible.has(key)) {
-      if (cellData.labelMarker) cellData.labelMarker.remove();
-      if (cellData.cellRect) cellData.cellRect.remove();
-      visibleMarkers.delete(key);
+      if (cell.rect) {
+        cell.rect.remove();
+        cell.rect = undefined;
+      }
+      if (cell.labelMarker) {
+        cell.labelMarker.remove();
+        cell.labelMarker = undefined;
+      }
     }
   }
 }
