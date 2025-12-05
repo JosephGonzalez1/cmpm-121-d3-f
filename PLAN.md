@@ -25,7 +25,9 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 - [x] draw the player's location on the map
 - [x] draw a rectangle representing one cell on the map
 - [x] use loops to draw a whole grid of cells on the map
-- ...
+- [x] uses luck() to deterministically assign tokens to cells.
+- [x] Displays token values visibly on the map using small red labels.
+- [x] Adds a basic inventory UI that currently just shows “Holding: none”.
 
 ### D3.b: Globe-spanning Gameplay
 
