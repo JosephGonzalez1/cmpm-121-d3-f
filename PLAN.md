@@ -54,3 +54,11 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 - [x] Update cell clicks to persist changes
 - [x] Update updateVisibleCells
 - [x] fix victory screen and make it more smooth
+
+### D3.d: Gameplay Across Real-world Space and Time
+
+#### Steps D3.d
+
+- [ ] added save and load functions
+- [ ] call loadGameState at startup
+- [ ] save state automatically
