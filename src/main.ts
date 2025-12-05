@@ -23,22 +23,22 @@ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 })
 
 // --- Player marker ---
 const playerMarker = L.marker([36.997936938057016, -122.05703507501151]);
-playerMarker.bindTooltip("You are here", { permanent: true });
-playerMarker.addTo(map);
+playerMarker.bindTooltip("You are here", { permanent: true }).addTo(map);
 
-// --- Grid / token setup ---
+// --- Config ---
 const TILE_DEGREES = 0.0001;
 const INTERACTION_RADIUS = 3;
 const TOKEN_LABEL_STYLE = "color: red; font-weight: bold;";
-const VICTORY_VALUE = 8; // token value to win
+const VICTORY_VALUE = 8;
 
+// --- Cell data ---
 interface CellData {
   value: number | null;
   labelMarker?: L.Marker | undefined;
   rect?: L.Rectangle | undefined;
 }
 
-// Map to hold modified cells persistently in memory
+// Map to hold persistent cells
 const persistentCells = new Map<string, CellData>();
 
 let heldToken: number | null = null;
@@ -60,15 +60,17 @@ function updateInventoryUI() {
 // --- Victory display ---
 const victoryDiv = document.createElement("div");
 victoryDiv.id = "victory";
-victoryDiv.style.position = "absolute";
-victoryDiv.style.top = "10px";
-victoryDiv.style.left = "50%";
-victoryDiv.style.transform = "translateX(-50%)";
-victoryDiv.style.padding = "1rem 2rem";
-victoryDiv.style.backgroundColor = "gold";
-victoryDiv.style.fontWeight = "bold";
-victoryDiv.style.fontSize = "1.2rem";
-victoryDiv.style.display = "none";
+Object.assign(victoryDiv.style, {
+  position: "absolute",
+  top: "10px",
+  left: "50%",
+  transform: "translateX(-50%)",
+  padding: "1rem 2rem",
+  backgroundColor: "gold",
+  fontWeight: "bold",
+  fontSize: "1.2rem",
+  display: "none",
+});
 victoryDiv.textContent = "Victory!";
 document.body.append(victoryDiv);
 
@@ -78,25 +80,17 @@ const playerCell = {
   j: Math.floor(-122.05703507501151 / TILE_DEGREES),
 };
 
-// --- Helper functions ---
-function cellKey(i: number, j: number) {
-  return `${i},${j}`;
-}
-
-function cellBounds(i: number, j: number) {
-  return L.latLngBounds(
-    [i * TILE_DEGREES, j * TILE_DEGREES],
-    [(i + 1) * TILE_DEGREES, (j + 1) * TILE_DEGREES],
-  );
-}
-
-function cellDistance(i: number, j: number) {
-  return Math.max(Math.abs(i - playerCell.i), Math.abs(j - playerCell.j));
-}
-
-function inRange(i: number, j: number) {
-  return cellDistance(i, j) <= INTERACTION_RADIUS;
-}
+// --- Helpers ---
+const cellKey = (i: number, j: number) => `${i},${j}`;
+const cellBounds = (i: number, j: number) =>
+  L.latLngBounds([i * TILE_DEGREES, j * TILE_DEGREES], [
+    (i + 1) * TILE_DEGREES,
+    (j + 1) * TILE_DEGREES,
+  ]);
+const cellDistance = (i: number, j: number) =>
+  Math.max(Math.abs(i - playerCell.i), Math.abs(j - playerCell.j));
+const inRange = (i: number, j: number) =>
+  cellDistance(i, j) <= INTERACTION_RADIUS;
 
 function generateTokenValue(i: number, j: number): number | null {
   const r = luck(`cell(${i},${j})`);
@@ -106,21 +100,18 @@ function generateTokenValue(i: number, j: number): number | null {
   return null;
 }
 
-// --- Handle cell clicks ---
+// --- Cell interaction ---
 function handleCellClick(i: number, j: number) {
   const key = cellKey(i, j);
   const cell = persistentCells.get(key);
-  if (!cell) return;
-  if (!inRange(i, j)) return;
+  if (!cell || !inRange(i, j)) return;
 
   // Pick up token
   if (heldToken === null && cell.value !== null) {
     heldToken = cell.value;
     cell.value = null;
-    if (cell.labelMarker) {
-      cell.labelMarker.remove();
-      cell.labelMarker = undefined;
-    }
+    cell.labelMarker?.remove();
+    cell.labelMarker = undefined;
     updateInventoryUI();
     return;
   }
@@ -130,9 +121,7 @@ function handleCellClick(i: number, j: number) {
     const newValue = heldToken * 2;
     heldToken = null;
 
-    if (cell.labelMarker) {
-      cell.labelMarker.remove();
-    }
+    cell.labelMarker?.remove();
 
     cell.value = newValue;
     cell.labelMarker = L.marker(cellBounds(i, j).getCenter(), {
@@ -144,26 +133,21 @@ function handleCellClick(i: number, j: number) {
 
     updateInventoryUI();
 
-    // Check victory
-    if (newValue >= VICTORY_VALUE) {
-      victoryDiv.style.display = "block";
-    }
+    if (newValue >= VICTORY_VALUE) victoryDiv.style.display = "block";
   }
 }
 
 // --- Draw a single cell ---
 function drawCell(i: number, j: number) {
   const key = cellKey(i, j);
-
-  // Reuse persistent cell if exists, otherwise generate
   let cell = persistentCells.get(key);
+
   if (!cell) {
-    const value = generateTokenValue(i, j);
-    cell = { value };
+    cell = { value: generateTokenValue(i, j) };
     persistentCells.set(key, cell);
   }
 
-  if (cell.rect) return; // already drawn
+  if (cell.rect) return;
 
   const bounds = cellBounds(i, j);
   const rect = L.rectangle(bounds, { color: "gray", weight: 1 }).addTo(map);
@@ -194,6 +178,7 @@ function updateVisibleCells() {
   };
 
   const newVisible = new Set<string>();
+
   for (let i = bottomRight.i; i <= topLeft.i; i++) {
     for (let j = topLeft.j; j <= bottomRight.j; j++) {
       drawCell(i, j);
@@ -201,17 +186,12 @@ function updateVisibleCells() {
     }
   }
 
-  // Remove off-screen cells
   for (const [key, cell] of persistentCells.entries()) {
     if (!newVisible.has(key)) {
-      if (cell.rect) {
-        cell.rect.remove();
-        cell.rect = undefined;
-      }
-      if (cell.labelMarker) {
-        cell.labelMarker.remove();
-        cell.labelMarker = undefined;
-      }
+      cell.rect?.remove();
+      cell.rect = undefined;
+      cell.labelMarker?.remove();
+      cell.labelMarker = undefined;
     }
   }
 }
@@ -222,37 +202,35 @@ updateVisibleCells();
 
 // --- Player movement buttons ---
 const controlPanelDiv = document.createElement("div");
-controlPanelDiv.id = "controlPanel";
-controlPanelDiv.style.padding = "1rem";
-controlPanelDiv.style.display = "flex";
-controlPanelDiv.style.gap = "0.5rem";
+Object.assign(controlPanelDiv.style, {
+  padding: "1rem",
+  display: "flex",
+  gap: "0.5rem",
+});
 document.body.append(controlPanelDiv);
 
 function movePlayer(di: number, dj: number) {
   playerCell.i += di;
   playerCell.j += dj;
 
-  const newLat = playerCell.i * TILE_DEGREES + TILE_DEGREES / 2;
-  const newLng = playerCell.j * TILE_DEGREES + TILE_DEGREES / 2;
-  const newLatLng = L.latLng(newLat, newLng);
-
+  const newLatLng = L.latLng(
+    playerCell.i * TILE_DEGREES + TILE_DEGREES / 2,
+    playerCell.j * TILE_DEGREES + TILE_DEGREES / 2,
+  );
   playerMarker.setLatLng(newLatLng);
   map.panTo(newLatLng);
   updateVisibleCells();
 }
 
-const directions = [
-  { label: "↑", di: 1, dj: 0 },
-  { label: "↓", di: -1, dj: 0 },
-  { label: "←", di: 0, dj: -1 },
-  { label: "→", di: 0, dj: 1 },
-];
-
-directions.forEach(({ label, di, dj }) => {
-  const btn = document.createElement("button");
-  btn.textContent = label;
-  btn.style.width = "2rem";
-  btn.style.height = "2rem";
-  btn.addEventListener("click", () => movePlayer(di, dj));
-  controlPanelDiv.append(btn);
-});
+[{ label: "↑", di: 1, dj: 0 }, { label: "↓", di: -1, dj: 0 }, {
+  label: "←",
+  di: 0,
+  dj: -1,
+}, { label: "→", di: 0, dj: 1 }]
+  .forEach(({ label, di, dj }) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    Object.assign(btn.style, { width: "2rem", height: "2rem" });
+    btn.addEventListener("click", () => movePlayer(di, dj));
+    controlPanelDiv.append(btn);
+  });
