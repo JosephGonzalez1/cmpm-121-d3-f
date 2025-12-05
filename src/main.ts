@@ -30,12 +30,12 @@ playerMarker.addTo(map);
 const TILE_DEGREES = 0.0001;
 const INTERACTION_RADIUS = 3;
 const TOKEN_LABEL_STYLE = "color: red; font-weight: bold;";
-const VICTORY_VALUE = 8; // target value for victory
+const VICTORY_TARGET = 8; // token value to win
 
 interface CellData {
   value: number | null;
   labelMarker: L.Marker | undefined;
-  rect: L.Rectangle | undefined;
+  cellRect: L.Rectangle | undefined;
 }
 
 // Only track currently visible cells
@@ -90,44 +90,51 @@ function generateTokenValue(i: number, j: number): number | null {
   return null;
 }
 
+// --- Helper: create token marker ---
+function createTokenMarker(i: number, j: number, value: number) {
+  return L.marker(cellBounds(i, j).getCenter(), {
+    icon: L.divIcon({
+      className: "token-label",
+      html: `<div style="${TOKEN_LABEL_STYLE}">${value}</div>`,
+    }),
+  }).addTo(map);
+}
+
 // --- Handle cell clicks (memoryless) ---
 function handleCellClick(i: number, j: number) {
   const key = cellKey(i, j);
-  const cell = visibleMarkers.get(key);
-  if (!cell) return;
+  const cellData = visibleMarkers.get(key);
+  if (!cellData) return;
   if (!inRange(i, j, playerCell.i, playerCell.j)) return;
 
   // Pick up token
-  if (heldToken === null && cell.value !== null) {
-    heldToken = cell.value;
-    if (cell.labelMarker) cell.labelMarker.remove();
-    cell.value = null;
-    cell.labelMarker = undefined;
+  if (heldToken === null && cellData.value !== null) {
+    heldToken = cellData.value;
+    if (cellData.labelMarker) cellData.labelMarker.remove();
+    cellData.value = null;
+    cellData.labelMarker = undefined;
     updateInventoryUI();
     return;
   }
 
   // Craft token
-  if (heldToken !== null && cell.value === heldToken) {
+  if (heldToken !== null && cellData.value === heldToken) {
     const newValue = heldToken * 2;
     heldToken = null;
 
-    if (cell.labelMarker) cell.labelMarker.remove();
+    if (cellData.labelMarker) cellData.labelMarker.remove();
 
-    cell.value = newValue;
-    cell.labelMarker = L.marker(cellBounds(i, j).getCenter(), {
-      icon: L.divIcon({
-        className: "token-label",
-        html: `<div style="${TOKEN_LABEL_STYLE}">${newValue}</div>`,
-      }),
-    }).addTo(map);
+    cellData.value = newValue;
+    cellData.labelMarker = createTokenMarker(i, j, newValue);
 
     updateInventoryUI();
 
-    // Victory check only on crafting
-    if (newValue >= VICTORY_VALUE) {
+    // Victory check
+    if (newValue >= VICTORY_TARGET) {
       alert(`Victory! You crafted a token of value ${newValue}!`);
     }
+
+    return;
   }
 }
 
@@ -137,20 +144,13 @@ function drawCell(i: number, j: number) {
   if (visibleMarkers.has(key)) return;
 
   const bounds = cellBounds(i, j);
-  const rect = L.rectangle(bounds, { color: "gray", weight: 1 }).addTo(map);
-  rect.on("click", () => handleCellClick(i, j));
+  const cellRect = L.rectangle(bounds, { color: "gray", weight: 1 }).addTo(map);
+  cellRect.on("click", () => handleCellClick(i, j));
 
   const value = generateTokenValue(i, j);
-  const marker = value !== null
-    ? L.marker(bounds.getCenter(), {
-      icon: L.divIcon({
-        className: "token-label",
-        html: `<div style="${TOKEN_LABEL_STYLE}">${value}</div>`,
-      }),
-    }).addTo(map)
-    : undefined;
+  const marker = value !== null ? createTokenMarker(i, j, value) : undefined;
 
-  visibleMarkers.set(key, { value, rect, labelMarker: marker });
+  visibleMarkers.set(key, { value, cellRect, labelMarker: marker });
 }
 
 // --- Update visible cells dynamically ---
@@ -174,10 +174,10 @@ function updateVisibleCells() {
   }
 
   // Remove off-screen cells
-  for (const [key, cell] of visibleMarkers.entries()) {
+  for (const [key, cellData] of visibleMarkers.entries()) {
     if (!newVisible.has(key)) {
-      if (cell.labelMarker) cell.labelMarker.remove();
-      if (cell.rect) cell.rect.remove();
+      if (cellData.labelMarker) cellData.labelMarker.remove();
+      if (cellData.cellRect) cellData.cellRect.remove();
       visibleMarkers.delete(key);
     }
   }
