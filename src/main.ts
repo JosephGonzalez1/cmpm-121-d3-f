@@ -30,6 +30,7 @@ playerMarker.addTo(map);
 const TILE_DEGREES = 0.0001;
 const INTERACTION_RADIUS = 3;
 const TOKEN_LABEL_STYLE = "color: red; font-weight: bold;";
+const VICTORY_VALUE = 8; // target value for victory
 
 interface CellData {
   value: number | null;
@@ -122,6 +123,11 @@ function handleCellClick(i: number, j: number) {
     }).addTo(map);
 
     updateInventoryUI();
+
+    // Victory check only on crafting
+    if (newValue >= VICTORY_VALUE) {
+      alert(`Victory! You crafted a token of value ${newValue}!`);
+    }
   }
 }
 
