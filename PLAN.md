@@ -53,3 +53,4 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 - [x] Modify drawCell to use persistent state
 - [x] Update cell clicks to persist changes
 - [x] Update updateVisibleCells
+- [x] fix victory screen and make it more smooth
