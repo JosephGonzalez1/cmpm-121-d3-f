@@ -36,4 +36,6 @@ Key gameplay challenge: Can players collect and craft tokens from nearby locatio
 
 ### D3.b: Globe-spanning Gameplay
 
-...
+#### Steps
+
+- [] dynamic, globe-spanning grid
